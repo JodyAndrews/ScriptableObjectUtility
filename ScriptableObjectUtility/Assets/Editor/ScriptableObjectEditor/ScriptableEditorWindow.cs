@@ -33,7 +33,9 @@ namespace Voodoo.Utilities
 			GUILayout.MinWidth (256)
 		};
 		List<DefaultItemWindow> _viewableObjectWindows = new List<DefaultItemWindow> ();
-		List<Type> _scriptableTypes = new List<Type> ();
+		List<Type> _selectableTypes = new List<Type> ();
+		Type _selectedType = null;
+		bool _initialized = false;
 
 		#endregion
 
@@ -56,7 +58,6 @@ namespace Voodoo.Utilities
 		[MenuItem ("Voodoo/ScriptableObject Viewer %s")]
 		static void OpenInventory ()
 		{
-			
 			ScriptableEditorWindow window = (ScriptableEditorWindow)EditorWindow.GetWindow<ScriptableEditorWindow> ("ScriptableObject Viewer", typeof(SceneView));
 			window.Show (true);
 		}
@@ -72,16 +73,7 @@ namespace Voodoo.Utilities
 			this.position = thisRect;
 			_splitViewX = DEFAULTSPLITX;
 
-			// Load all the current inventory items
-			List<ScriptableObject> sObjs = new List<ScriptableObject> ();
-
-			var pathGuids = AssetDatabase.FindAssets ("t:ScriptableObject");
-			foreach (string pathGuid in pathGuids) {
-				string assetpath = AssetDatabase.GUIDToAssetPath (pathGuid);
-				ScriptableObject so = AssetDatabase.LoadAssetAtPath<ScriptableObject> (assetpath);
-				sObjs.Add (so);
-			}
-			_scriptableObjects = sObjs.ToArray ();
+			Refresh ();
 		}
 
 		/// <summary>
@@ -89,12 +81,16 @@ namespace Voodoo.Utilities
 		/// </summary>
 		void OnGUI ()
 		{
+			Refresh ();
+
 			GUILayout.BeginHorizontal ();
 
 			// Draw the side panel
 			DrawSidePanel ();
 
 			DrawWindows ();
+
+			HandleMousePointerClick ();
 			
 			GUILayout.EndHorizontal ();
 
@@ -103,6 +99,41 @@ namespace Voodoo.Utilities
 		void OnInspectorUpdate ()
 		{
 			Repaint (); // Causing(?) Exacerbating(?) a memory leak on OSX in 5.3+
+		}
+
+		void HandleMousePointerClick()
+		{
+			var e = Event.current;
+			
+			HandleMousePointerRightClick(e);
+		}
+
+		/// <summary>
+		/// Handle the mouse pointer right click.
+		/// </summary>
+		/// <param name="e">E.</param>
+		void HandleMousePointerRightClick(Event e)
+		{
+			if (e.button == 1 && e.type == EventType.MouseUp && _viewableObjectWindows.Count > 0)
+			{
+				var menu = new GenericMenu();
+				menu.AddItem (new GUIContent("Add New " + _selectedType.Name), false, delegate { 
+					string path = EditorUtility.SaveFilePanel ("Create Scriptable Object", "Assets/", _selectedType.Name + ".asset", "asset");
+					
+					if (path == "")
+						return;
+					
+					path = FileUtil.GetProjectRelativePath (path);
+					
+					var asset = CreateInstance (_selectedType.ToString());
+					AssetDatabase.CreateAsset (asset, path);
+					AssetDatabase.SaveAssets ();
+					_initialized = false;
+				});
+				
+				menu.ShowAsContext();
+				e.Use();
+			}
 		}
 
 		/// <summary>
@@ -130,6 +161,9 @@ namespace Voodoo.Utilities
 			float maxPreviousRowHeight = 0;
 			
 			for (int i = 0; i < _viewableObjectWindows.Count (); i++) {
+				if (_viewableObjectWindows [i] == null)
+					continue;
+
 				_viewableObjectWindows [i].WindowRect = GUILayout.Window (i, _viewableObjectWindows [i].WindowRect, _viewableObjectWindows [i].DrawWindow, _viewableObjectWindows [i].Data.name, _options);
 				
 				// Current Window Rect
@@ -154,6 +188,47 @@ namespace Voodoo.Utilities
 			EndWindows ();
 		}
 
+		void Refresh()
+		{
+			// If we haven't yet initialized..
+			if (_initialized) 
+				return;
+			
+			// Clear down our collections
+			_selectableTypes.Clear();
+			_scriptableObjectWindows.Clear ();
+			_viewableObjectWindows.Clear ();
+
+			// Load all the current scriptable items into the _scriptableObjects array, todo: why is this an array?
+			List<ScriptableObject> sObjs = new List<ScriptableObject> ();
+			string[] pathGuids = AssetDatabase.FindAssets ("t:ScriptableObject");
+			foreach (string pathGuid in pathGuids) {
+				string assetpath = AssetDatabase.GUIDToAssetPath (pathGuid);
+				ScriptableObject so = AssetDatabase.LoadAssetAtPath<ScriptableObject> (assetpath);
+				sObjs.Add (so);
+			}
+			_scriptableObjects = sObjs.ToArray ();
+
+			// Reload all of our scriptable objects windows and unique selectables menu 
+			foreach (ScriptableObject sObj in _scriptableObjects) {
+				Type t = sObj.GetType ();
+				
+				if (!_selectableTypes.Contains (t)) {
+					_selectableTypes.Add (t);
+				}
+				
+				_scriptableObjectWindows.Add (new DefaultItemWindow (this, sObj));
+			}
+
+			// Do we currently have a selected type?, yes? then let's assign those to the viewable collection
+			if (_selectedType != null) {
+				_viewableObjectWindows = _scriptableObjectWindows.Where (a => a.Data.GetType ().Name.ToLower () == _selectedType.Name.ToLower ()).ToList ();
+			}
+
+			// We've initialized, let's go
+			_initialized = true;
+		}
+
 		/// <summary>
 		/// Draws the side panel.
 		/// </summary>
@@ -161,28 +236,17 @@ namespace Voodoo.Utilities
 		{
 			GUILayout.BeginVertical ();
 
-			// If we haven't yet initialized..
-			if (_scriptableObjectWindows.Count == 0)
-				foreach (ScriptableObject sObj in _scriptableObjects) {
-					Type t = sObj.GetType ();
-
-					if (!_scriptableTypes.Contains (t)) {
-						_scriptableTypes.Add (t);
-					}
-					
-					_scriptableObjectWindows.Add (new DefaultItemWindow (this, sObj));
-				}
-
-			foreach (Type t in _scriptableTypes) {
+			foreach (Type t in _selectableTypes) {
 				if (GUILayout.Button (t.Name, GUILayout.Width (_splitViewX))) {
+
+					_selectedType = t;
 					_viewableObjectWindows = _scriptableObjectWindows.Where (a => a.Data.GetType ().Name.ToLower () == t.Name.ToLower ()).ToList ();
 				}
 			}
 
-
 			GUILayout.EndVertical ();
 		}
-
+	
 		#endregion
 	}
 }
