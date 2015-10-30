@@ -161,7 +161,7 @@ namespace Voodoo.Utilities
 			float maxPreviousRowHeight = 0;
 			
 			for (int i = 0; i < _viewableObjectWindows.Count (); i++) {
-				if (_viewableObjectWindows [i] == null)
+				if (_viewableObjectWindows [i] == null || _viewableObjectWindows[i].Data == null)
 					continue;
 
 				_viewableObjectWindows [i].WindowRect = GUILayout.Window (i, _viewableObjectWindows [i].WindowRect, _viewableObjectWindows [i].DrawWindow, _viewableObjectWindows [i].Data.name, _options);
