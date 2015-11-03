@@ -8,6 +8,7 @@ public class DefaultItemWindow
 
 	ScriptableObject _data;
 	ScriptableEditorWindow _ownerWindow;
+	Editor _editor;
 
 	#endregion
 
@@ -30,7 +31,7 @@ public class DefaultItemWindow
 
 	public int Id { 
 		get; 
-		set; 
+
 	}
 
 	public ScriptableObject Data {
@@ -43,8 +44,10 @@ public class DefaultItemWindow
 
 	public void DrawWindow (int id)
 	{
-		Editor editor = Editor.CreateEditor (_data);
-		editor.DrawDefaultInspector ();
+		if (_editor == null)
+			_editor = Editor.CreateEditor (_data);
+
+		_editor.DrawDefaultInspector ();
 
 		// We can also display the path if necessary, commented this out as if the path is large it makes the window width excessive
 		//string path = AssetDatabase.GetAssetPath (_data);
