@@ -94,11 +94,7 @@ namespace Voodoo.Utilities
 			
 			GUILayout.EndHorizontal ();
 
-		}
-
-		void OnInspectorUpdate ()
-		{
-			Repaint (); // Causing(?) Exacerbating(?) a memory leak on OSX in 5.3+
+			Repaint ();
 		}
 
 		void HandleMousePointerClick()
