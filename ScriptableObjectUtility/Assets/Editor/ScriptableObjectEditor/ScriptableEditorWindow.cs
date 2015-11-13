@@ -164,9 +164,7 @@ namespace Voodoo.Utilities
 		/// </summary>
 		void DrawMainWindow() {
 
-			// No need to do anything here if there's nothing to draw
-			if (_scriptableObjectWindows.Count () == 0)
-				return;
+
 
 			// Begin drawing
 			BeginWindows ();
@@ -174,7 +172,11 @@ namespace Voodoo.Utilities
 			// Size of each window with padding is..
 			float windowWidth = 100f;
 
-			// Use the first window for sizing
+			// No need to do anything here if there's nothing to draw, this must be checked within BeginWindows
+			// and not before
+			if (_scriptableObjectWindows.Count () == 0)
+				return;
+
 			windowWidth = _scriptableObjectWindows [0].WindowRect.width + XPADDING;
 
 			// Absolute number we can fit into this editor window width
