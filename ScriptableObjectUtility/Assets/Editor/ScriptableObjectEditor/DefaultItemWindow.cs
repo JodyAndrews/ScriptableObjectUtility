@@ -31,7 +31,7 @@ public class DefaultItemWindow
 
 	public int Id { 
 		get; 
-
+		set;
 	}
 
 	public ScriptableObject Data {
