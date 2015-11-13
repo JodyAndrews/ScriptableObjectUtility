@@ -250,8 +250,9 @@ namespace Voodoo.Utilities
 				sObjs.Add (so);
 			}
 
+			List<ScriptableObject> returnObjects = sObjs.Where (a => a.GetType ().Name == type.Name).ToList ();
 			// Return only those that match this type
-			return sObjs.Where (a => a.GetType ().Name == type.Name).ToList ();
+			return returnObjects;
 		}
 
 		/// <summary>
@@ -292,7 +293,8 @@ namespace Voodoo.Utilities
 				return new List<Type> ();
 			}
 
-			return mainAssembly.GetTypes ().Where (a => typeof(ScriptableObject).IsAssignableFrom (a)).ToList ();
+			List<Type> ts = mainAssembly.GetTypes ().Where (a => typeof(ScriptableObject).IsAssignableFrom (a)).ToList ();
+			return ts;
 		}
 	
 		#endregion
