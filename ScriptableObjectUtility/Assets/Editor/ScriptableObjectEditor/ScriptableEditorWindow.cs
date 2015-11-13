@@ -13,7 +13,7 @@ namespace Voodoo.Utilities
 		#region Constants
 
 		const float STARTY = 20f;
-		const float STARTX = 20f;
+		const float STARTX = 35f;
 		const float XPADDING = 10f;
 		const float YPADDING = 10f;
 		const float DEFAULTWIDTH = 900f;
@@ -42,6 +42,8 @@ namespace Voodoo.Utilities
 			GUILayout.MinHeight (50f),
 			GUILayout.MinWidth (256)
 		};
+
+		Vector2 menuScrollPosition = Vector2.zero;
 
 		/// <summary>
 		/// The current selected type if any
@@ -164,11 +166,9 @@ namespace Voodoo.Utilities
 		/// </summary>
 		void DrawMainWindow() {
 
-
-
 			// Begin drawing
 			BeginWindows ();
-			
+
 			// Size of each window with padding is..
 			float windowWidth = 100f;
 
@@ -268,16 +268,15 @@ namespace Voodoo.Utilities
 		/// Draws the GUI side panel with the list of scriptable types
 		/// </summary>
 		void DrawSidePanel() {
-			GUILayout.BeginVertical ();
-			
+			menuScrollPosition = GUILayout.BeginScrollView(menuScrollPosition, GUILayout.Width (SIDEWINDOWWIDTH + 25f), GUILayout.Height(position.height));
+
 			foreach (Type type in _scriptableTypes) {
 				if (GUILayout.Button (type.Name, GUILayout.Width (SIDEWINDOWWIDTH))) {
 					_selectedType = type;
 					ReloadWindows();
 				}
 			}
-			
-			GUILayout.EndVertical ();
+			GUILayout.EndScrollView ();
 		}
 
 		/// <summary>
