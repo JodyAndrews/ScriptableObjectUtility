@@ -181,7 +181,7 @@ namespace Voodoo.Utilities
 
 			// Absolute number we can fit into this editor window width
 			int remainder = 0;
-			float windowsWidthCount = System.Math.DivRem ((int)(this.position.width - SIDEWINDOWWIDTH), (int)windowWidth, out remainder);
+			float windowsWidthCount = System.Math.DivRem ((int)(this.position.width - SIDEWINDOWWIDTH - STARTX), (int)windowWidth, out remainder);
 			
 			int currentXCount = 0;
 			float yPosition = STARTY;
@@ -290,9 +290,6 @@ namespace Voodoo.Utilities
 
 			// TODO : Just load the assembly instead??
 			Assembly mainAssembly = AppDomain.CurrentDomain.GetAssemblies ().Where (a => a.FullName == "Assembly-CSharp, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null").FirstOrDefault ();
-			if (mainAssembly == null) { // This can't be possible(?) but still..
-				return new List<Type> ();
-			}
 
 			List<Type> ts = mainAssembly.GetTypes ().Where (a => typeof(ScriptableObject).IsAssignableFrom (a)).ToList ();
 			return ts;
