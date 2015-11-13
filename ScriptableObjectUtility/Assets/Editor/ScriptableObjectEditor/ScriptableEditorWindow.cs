@@ -4,6 +4,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 using System;
+using System.Reflection;
 
 namespace Voodoo.Utilities
 {
@@ -15,55 +16,67 @@ namespace Voodoo.Utilities
 		const float STARTX = 20f;
 		const float XPADDING = 10f;
 		const float YPADDING = 10f;
-		const float GRIDSIZE = 15f;
 		const float DEFAULTWIDTH = 900f;
-		const float DEFAULTSPLITX = 150f;
+		const float SIDEWINDOWWIDTH = 150f;
 
 		#endregion
 
-		#region Declarations
+		#region Fields
 
-		float _splitViewX;
-		ScriptableObject[] _scriptableObjects;
+		/// <summary>
+		/// Cache any scriptable object types found in the main assembly
+		/// </summary>
+		List<Type> _scriptableTypes = new List<Type>();
+
+		/// <summary>
+		/// All of the drawable windows
+		/// </summary>
 		List<DefaultItemWindow> _scriptableObjectWindows = new List<DefaultItemWindow> ();
+
+		/// <summary>
+		/// Some basic options
+		/// </summary>
 		GUILayoutOption[] _options = {
 			GUILayout.ExpandHeight (true),
 			GUILayout.ExpandWidth (true),
 			GUILayout.MinHeight (50f),
 			GUILayout.MinWidth (256)
 		};
-		List<DefaultItemWindow> _viewableObjectWindows = new List<DefaultItemWindow> ();
-		List<Type> _selectableTypes = new List<Type> ();
+
+		/// <summary>
+		/// The current selected type if any
+		/// </summary>
 		Type _selectedType = null;
-		bool _initialized = false;
 
 		#endregion
 
 		#region Properties
 
+		/// <summary>
+		/// Accessor for individual windows
+		/// </summary>
+		/// <value>The scriptable object windows.</value>
 		public List<DefaultItemWindow> ScriptableObjectWindows {
 			get { return _scriptableObjectWindows; }
 			set { _scriptableObjectWindows = value; }
-		}
-
-		public List<DefaultItemWindow> ViewableObjectWindows {
-			get { return _viewableObjectWindows; }
-			set { _viewableObjectWindows = value; }
 		}
 
 		#endregion
 
 		#region Methods
 
-		[MenuItem ("Voodoo/ScriptableObject Viewer %s")]
-		static void OpenInventory ()
+		/// <summary>
+		/// Opens the inventory.
+		/// </summary>
+		[MenuItem ("Voodoo/Scriptable Objects %s")]
+		static void OpenWindow ()
 		{
-			ScriptableEditorWindow window = (ScriptableEditorWindow)EditorWindow.GetWindow<ScriptableEditorWindow> ("ScriptableObject Viewer", typeof(SceneView));
+			ScriptableEditorWindow window = (ScriptableEditorWindow)EditorWindow.GetWindow<ScriptableEditorWindow> ("Scriptable Objects", typeof(SceneView));
 			window.Show (true);
 		}
 
 		/// <summary>
-		/// Raises the enable event.
+		/// Called on enable
 		/// </summary>
 		void OnEnable ()
 		{
@@ -71,24 +84,20 @@ namespace Voodoo.Utilities
 			Rect thisRect = this.position;
 			thisRect.width = DEFAULTWIDTH;
 			this.position = thisRect;
-			_splitViewX = DEFAULTSPLITX;
 
-			Refresh ();
+			_scriptableTypes = GetScriptableObjectTypes ();
 		}
 
 		/// <summary>
-		/// Raises the GUI event.
+		/// Draw our UI
 		/// </summary>
 		void OnGUI ()
 		{
-			Refresh ();
-
 			GUILayout.BeginHorizontal ();
 
-			// Draw the side panel
 			DrawSidePanel ();
 
-			DrawWindows ();
+			DrawMainWindow ();
 
 			HandleMousePointerClick ();
 			
@@ -97,6 +106,9 @@ namespace Voodoo.Utilities
 			Repaint ();
 		}
 
+		/// <summary>
+		/// Handles all mouse pointer clicking
+		/// </summary>
 		void HandleMousePointerClick()
 		{
 			var e = Event.current;
@@ -110,11 +122,11 @@ namespace Voodoo.Utilities
 		/// <param name="e">E.</param>
 		void HandleMousePointerRightClick(Event e)
 		{
-			if (e.button == 1 && e.type == EventType.MouseUp && _viewableObjectWindows.Count > 0)
+			if (e.button == 1 && e.type == EventType.MouseUp && _selectedType != null)
 			{
 				var menu = new GenericMenu();
 				menu.AddItem (new GUIContent("Add New " + _selectedType.Name), false, delegate { 
-					string path = EditorUtility.SaveFilePanel ("Create Scriptable Object", "Assets/", _selectedType.Name + ".asset", "asset");
+					string path = EditorUtility.SaveFilePanel ("Create Scriptable Object", "Assets/", String.Format("{0}.asset", _selectedType.Name), "asset");
 					
 					if (path == "")
 						return;
@@ -124,7 +136,7 @@ namespace Voodoo.Utilities
 					var asset = CreateInstance (_selectedType.ToString());
 					AssetDatabase.CreateAsset (asset, path);
 					AssetDatabase.SaveAssets ();
-					_initialized = false;
+					ReloadWindows();
 				});
 				
 				menu.ShowAsContext();
@@ -133,41 +145,46 @@ namespace Voodoo.Utilities
 		}
 
 		/// <summary>
-		/// Draws the windows.
+		/// Draws the main window with (if selected) the editor for each viewable scriptable object
 		/// </summary>
-		void DrawWindows ()
-		{
-			// Won't be doing anything if there's no windows
-			if (_viewableObjectWindows.Count == 0)
+		void DrawMainWindow() {
+
+			// No need to do anything here if there's nothing to draw
+			if (_scriptableObjectWindows.Count () == 0)
 				return;
 
+			// Begin drawing
 			BeginWindows ();
-
+			
 			// Size of each window with padding is..
 			float windowWidth = 100f;
-			if (_viewableObjectWindows.Count > 0)
-				windowWidth = _viewableObjectWindows [0].WindowRect.width + XPADDING;
-			
+
+			// Use the first window for sizing
+			windowWidth = _scriptableObjectWindows [0].WindowRect.width + XPADDING;
+
 			// Absolute number we can fit into this editor window width
 			int remainder = 0;
-			float windowsWidthCount = System.Math.DivRem ((int)(this.position.width - _splitViewX), (int)windowWidth, out remainder);
+			float windowsWidthCount = System.Math.DivRem ((int)(this.position.width - SIDEWINDOWWIDTH), (int)windowWidth, out remainder);
 			
 			int currentXCount = 0;
 			float yPosition = STARTY;
 			float maxPreviousRowHeight = 0;
 			
-			for (int i = 0; i < _viewableObjectWindows.Count (); i++) {
-				if (_viewableObjectWindows [i] == null || _viewableObjectWindows[i].Data == null)
-					continue;
+			for (int i = 0; i < _scriptableObjectWindows.Count (); i++) {
 
-				_viewableObjectWindows [i].WindowRect = GUILayout.Window (i, _viewableObjectWindows [i].WindowRect, _viewableObjectWindows [i].DrawWindow, _viewableObjectWindows [i].Data.name, _options);
+				DefaultItemWindow scriptableObjectWindow = _scriptableObjectWindows[i];
+
+				if (scriptableObjectWindow == null || scriptableObjectWindow.Data == null)
+					continue;
+				
+				scriptableObjectWindow.WindowRect = GUILayout.Window (i, scriptableObjectWindow.WindowRect, scriptableObjectWindow.DrawWindow, scriptableObjectWindow.Data.name, _options);
 				
 				// Current Window Rect
-				Rect windowPositionRect = _viewableObjectWindows [i].WindowRect;
-				windowPositionRect.x = _splitViewX + STARTX;
+				Rect windowPositionRect = scriptableObjectWindow.WindowRect;
+				windowPositionRect.x = SIDEWINDOWWIDTH + STARTX;
 				windowPositionRect.x += (windowWidth * currentXCount);
 				windowPositionRect.y = yPosition;
-				_viewableObjectWindows [i].WindowRect = windowPositionRect;
+				scriptableObjectWindow.WindowRect = windowPositionRect;
 				
 				if (windowPositionRect.height > maxPreviousRowHeight)
 					maxPreviousRowHeight = windowPositionRect.height;
@@ -183,64 +200,84 @@ namespace Voodoo.Utilities
 
 			EndWindows ();
 		}
-
-		void Refresh()
+	
+		/// <summary>
+		/// Gets the windows for scriptable objects.
+		/// </summary>
+		/// <returns>The windows for objects.</returns>
+		/// <param name="scriptableObjects">Scriptable objects.</param>
+		List<DefaultItemWindow> GetWindowsForObjects(List<ScriptableObject> scriptableObjects)
 		{
-			// If we haven't yet initialized..
-			if (_initialized) 
-				return;
-			
-			// Clear down our collections
-			_selectableTypes.Clear();
-			_scriptableObjectWindows.Clear ();
-			_viewableObjectWindows.Clear ();
+			List<DefaultItemWindow> windows = new List<DefaultItemWindow> ();
 
-			// Load all the current scriptable items into the _scriptableObjects array, todo: why is this an array?
-			List<ScriptableObject> sObjs = new List<ScriptableObject> ();
-			string[] pathGuids = AssetDatabase.FindAssets ("t:ScriptableObject");
-			foreach (string pathGuid in pathGuids) {
-				string assetpath = AssetDatabase.GUIDToAssetPath (pathGuid);
-				ScriptableObject so = AssetDatabase.LoadAssetAtPath<ScriptableObject> (assetpath);
-				sObjs.Add (so);
-			}
-			_scriptableObjects = sObjs.ToArray ();
-
-			// Reload all of our scriptable objects windows and unique selectables menu 
-			foreach (ScriptableObject sObj in _scriptableObjects) {
-				Type t = sObj.GetType ();
-				
-				if (!_selectableTypes.Contains (t)) {
-					_selectableTypes.Add (t);
-				}
-				
-				_scriptableObjectWindows.Add (new DefaultItemWindow (this, sObj));
+			foreach (ScriptableObject sObj in scriptableObjects) {
+				windows.Add (new DefaultItemWindow (this, sObj));
 			}
 
-			// Do we currently have a selected type?, yes? then let's assign those to the viewable collection
-			if (_selectedType != null) {
-				_viewableObjectWindows = _scriptableObjectWindows.Where (a => a.Data.GetType ().Name.ToLower () == _selectedType.Name.ToLower ()).ToList ();
-			}
-
-			// We've initialized, let's go
-			_initialized = true;
+			return windows;
 		}
 
 		/// <summary>
-		/// Draws the side panel.
+		/// Finds and returns all scriptableobjects for a given type
 		/// </summary>
-		void DrawSidePanel ()
-		{
-			GUILayout.BeginVertical ();
+		/// <returns>The scriptable objects.</returns>
+		/// <param name="type">Type.</param>
+		List<ScriptableObject> GetScriptableObjects(Type type) {
+			List<ScriptableObject> sObjs = new List<ScriptableObject> ();
+			string[] pathGuids = AssetDatabase.FindAssets ("t:ScriptableObject");
+			foreach (string pathGuid in pathGuids) {
 
-			foreach (Type t in _selectableTypes) {
-				if (GUILayout.Button (t.Name, GUILayout.Width (_splitViewX))) {
+				// Get the path
+				string assetpath = AssetDatabase.GUIDToAssetPath (pathGuid);
 
-					_selectedType = t;
-					_viewableObjectWindows = _scriptableObjectWindows.Where (a => a.Data.GetType ().Name.ToLower () == t.Name.ToLower ()).ToList ();
-				}
+				// Load the asset at that path and store
+				ScriptableObject so = AssetDatabase.LoadAssetAtPath<ScriptableObject> (assetpath);
+				sObjs.Add (so);
 			}
 
+			// Return only those that match this type
+			return sObjs.Where (a => a.GetType ().Name == type.Name).ToList ();
+		}
+
+		/// <summary>
+		/// Reloads (caches) the windows for each scriptableobject
+		/// </summary>
+		void ReloadWindows() {
+			_scriptableObjectWindows = GetWindowsForObjects(GetScriptableObjects(_selectedType));
+		}
+
+		/// <summary>
+		/// Draws the GUI side panel with the list of scriptable types
+		/// </summary>
+		void DrawSidePanel() {
+			GUILayout.BeginVertical ();
+			
+			foreach (Type type in _scriptableTypes) {
+				if (GUILayout.Button (type.Name, GUILayout.Width (SIDEWINDOWWIDTH))) {
+					_selectedType = type;
+					ReloadWindows();
+				}
+			}
+			
 			GUILayout.EndVertical ();
+		}
+
+		/// <summary>
+		/// Gets the scriptableobject types in this project. This should be polled for or triggered when focus is changed
+		/// and cached for the majority of the time
+		/// </summary>
+		/// <returns>The node window types.</returns>
+		List<Type> GetScriptableObjectTypes()
+		{
+			List<ScriptableObject> menuItems = new List<ScriptableObject>();
+
+			// TODO : Just load the assembly instead??
+			Assembly mainAssembly = AppDomain.CurrentDomain.GetAssemblies ().Where (a => a.FullName == "Assembly-CSharp, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null").FirstOrDefault ();
+			if (mainAssembly == null) { // This can't be possible(?) but still..
+				return new List<Type> ();
+			}
+
+			return mainAssembly.GetTypes ().Where (a => typeof(ScriptableObject).IsAssignableFrom (a)).ToList ();
 		}
 	
 		#endregion

@@ -55,7 +55,7 @@ public class DefaultItemWindow
 		
 		GUILayout.BeginHorizontal ();
 		if (GUILayout.Button ("Remove")) {
-			_ownerWindow.ViewableObjectWindows.RemoveAt (id);
+			_ownerWindow.ScriptableObjectWindows.RemoveAt (id);
 		}
 		
 		if (GUILayout.Button ("Delete")) {
