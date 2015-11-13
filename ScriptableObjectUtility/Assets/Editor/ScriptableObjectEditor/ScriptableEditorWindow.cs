@@ -43,7 +43,15 @@ namespace Voodoo.Utilities
 			GUILayout.MinWidth (256)
 		};
 
+		/// <summary>
+		/// Side menu scroll view position
+		/// </summary>
 		Vector2 menuScrollPosition = Vector2.zero;
+
+		/// <summary>
+		/// Main scroll view position
+		/// </summary>
+		Vector2 mainScrollPosition = Vector2.zero;
 
 		/// <summary>
 		/// The current selected type if any
@@ -58,7 +66,8 @@ namespace Voodoo.Utilities
 		/// Accessor for individual windows
 		/// </summary>
 		/// <value>The scriptable object windows.</value>
-		public List<DefaultItemWindow> ScriptableObjectWindows {
+		public List<DefaultItemWindow> ScriptableObjectWindows 
+		{
 			get { return _scriptableObjectWindows; }
 			set { _scriptableObjectWindows = value; }
 		}
@@ -164,8 +173,8 @@ namespace Voodoo.Utilities
 		/// <summary>
 		/// Draws the main window with (if selected) the editor for each viewable scriptable object
 		/// </summary>
-		void DrawMainWindow() {
-
+		void DrawMainWindow() 
+		{
 			// Begin drawing
 			BeginWindows ();
 
@@ -239,7 +248,8 @@ namespace Voodoo.Utilities
 		/// </summary>
 		/// <returns>The scriptable objects.</returns>
 		/// <param name="type">Type.</param>
-		List<ScriptableObject> GetScriptableObjects(Type type) {
+		List<ScriptableObject> GetScriptableObjects(Type type) 
+		{
 			List<ScriptableObject> sObjs = new List<ScriptableObject> ();
 			string[] pathGuids = AssetDatabase.FindAssets ("t:ScriptableObject");
 			foreach (string pathGuid in pathGuids) {
@@ -253,6 +263,7 @@ namespace Voodoo.Utilities
 			}
 
 			List<ScriptableObject> returnObjects = sObjs.Where (a => a.GetType ().Name == type.Name).ToList ();
+
 			// Return only those that match this type
 			return returnObjects;
 		}
@@ -260,15 +271,17 @@ namespace Voodoo.Utilities
 		/// <summary>
 		/// Reloads (caches) the windows for each scriptableobject
 		/// </summary>
-		void ReloadWindows() {
+		void ReloadWindows() 
+		{
 			_scriptableObjectWindows = GetWindowsForObjects(GetScriptableObjects(_selectedType));
 		}
 
 		/// <summary>
 		/// Draws the GUI side panel with the list of scriptable types
 		/// </summary>
-		void DrawSidePanel() {
-			menuScrollPosition = GUILayout.BeginScrollView(menuScrollPosition, GUILayout.Width (SIDEWINDOWWIDTH + 25f), GUILayout.Height(position.height));
+		void DrawSidePanel() 
+		{
+			menuScrollPosition = EditorGUILayout.BeginScrollView(menuScrollPosition, GUILayout.Width (SIDEWINDOWWIDTH + 25f), GUILayout.Height(position.height));
 
 			foreach (Type type in _scriptableTypes) {
 				if (GUILayout.Button (type.Name, GUILayout.Width (SIDEWINDOWWIDTH))) {
@@ -276,7 +289,7 @@ namespace Voodoo.Utilities
 					ReloadWindows();
 				}
 			}
-			GUILayout.EndScrollView ();
+			EditorGUILayout.EndScrollView ();
 		}
 
 		/// <summary>
