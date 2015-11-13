@@ -59,7 +59,12 @@ public class DefaultItemWindow
 		}
 		
 		if (GUILayout.Button ("Delete")) {
-			
+			if (EditorUtility.DisplayDialog("Delete Asset", "Remove " + this.Data.name + "?", "Okay", "Cancel"))
+			{
+				_ownerWindow.ScriptableObjectWindows.RemoveAt (id);
+				AssetDatabase.DeleteAsset(AssetDatabase.GetAssetPath (Data));
+				AssetDatabase.SaveAssets ();
+			}
 		}
 
 		GUILayout.EndHorizontal ();
