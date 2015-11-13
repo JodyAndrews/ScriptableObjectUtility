@@ -126,7 +126,22 @@ namespace Voodoo.Utilities
 			{
 				var menu = new GenericMenu();
 				menu.AddItem (new GUIContent("Add New " + _selectedType.Name), false, delegate { 
-					string path = EditorUtility.SaveFilePanel ("Create Scriptable Object", "Assets/", String.Format("{0}.asset", _selectedType.Name), "asset");
+
+					string folderPath = "";
+					// Get the path of an existing scriptable object for this type, if applicable
+					// Find a window of the same type
+					DefaultItemWindow window = _scriptableObjectWindows.Where(a => a.Data.GetType() == _selectedType).FirstOrDefault();
+
+					if (window != null)
+					{
+						string fullPath = AssetDatabase.GetAssetPath (window.Data);
+						folderPath = System.IO.Path.GetDirectoryName( fullPath );
+					}
+
+					if (folderPath == string.Empty)
+						folderPath = "Assets/";
+
+					string path = EditorUtility.SaveFilePanel ("Create Scriptable Object", folderPath, String.Format("{0}.asset", _selectedType.Name), "asset");
 					
 					if (path == "")
 						return;
